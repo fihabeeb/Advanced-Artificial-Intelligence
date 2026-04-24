@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models
 import pickle
+from config import IMG_SIZE, EPOCHS, BATCH_SIZE, LR
 
 # ---- LOAD DATA ----
 print("Loading data...")
@@ -30,18 +31,26 @@ print(f"Colour classes:    {n_colour}")
 print(f"Size classes:      {n_size}")
 
 # ---- BUILD CNN ----
-inputs = layers.Input(shape=(128, 128, 3))
+# Augmentation is applied only during training (Keras behaviour for these layers).
+augment = tf.keras.Sequential([
+    layers.RandomFlip("horizontal"),
+    layers.RandomRotation(0.1),
+    layers.RandomZoom(0.1),
+], name="augmentation")
+
+inputs = layers.Input(shape=(*IMG_SIZE, 3))
+x = augment(inputs)
 
 # --- Shared CNN Backbone ---
-x = layers.Conv2D(32, (3,3), activation="relu", padding="same")(inputs)
+x = layers.Conv2D(32, (3,3), activation="relu", padding="same")(x)
 x = layers.BatchNormalization()(x)
 x = layers.MaxPooling2D(2,2)(x)
 
-x = layers.Conv2D(64, (3,3), activation="relu", padding="same")(x)
+x = layers.Conv2D(64, (3, 3), activation="relu", padding="same")(x)
 x = layers.BatchNormalization()(x)
-x = layers.MaxPooling2D(2,2)(x)
+x = layers.MaxPooling2D(2, 2)(x)
 
-x = layers.Conv2D(128, (3,3), activation="relu", padding="same")(x)
+x = layers.Conv2D(128, (3, 3), activation="relu", padding="same")(x)
 x = layers.BatchNormalization()(x)
 x = layers.MaxPooling2D(2,2)(x)
 
@@ -49,7 +58,7 @@ x = layers.Conv2D(256, (3,3), activation="relu", padding="same")(x)
 x = layers.BatchNormalization()(x)
 x = layers.MaxPooling2D(2,2)(x)
 
-x = layers.Flatten()(x)
+x = layers.GlobalAveragePooling2D()(x)
 x = layers.Dense(512, activation="relu")(x)
 x = layers.Dropout(0.4)(x)
 shared = layers.Dense(256, activation="relu")(x)
@@ -74,11 +83,16 @@ size_out = layers.Dense(n_size, activation="softmax", name="size")(size_out)
 model = models.Model(inputs=inputs, outputs=[cond_out, col_out, size_out])
 
 model.compile(
-    optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
+    optimizer=tf.keras.optimizers.Adam(learning_rate=LR),
     loss={
         "condition": "sparse_categorical_crossentropy",
         "colour":    "sparse_categorical_crossentropy",
         "size":      "sparse_categorical_crossentropy"
+    },
+    loss_weights={
+        "condition": 2.0,
+        "colour":    0.5,
+        "size":      0.5,
     },
     metrics={
         "condition": "accuracy",
@@ -99,8 +113,8 @@ history = model.fit(
         X_val,
         {"condition": y_cond_val, "colour": y_col_val, "size": y_size_val}
     ),
-    epochs=20,
-    batch_size=32,
+    epochs=EPOCHS,
+    batch_size=BATCH_SIZE,
     callbacks=[
         # Stop early if validation loss stops improving
         tf.keras.callbacks.EarlyStopping(patience=4, restore_best_weights=True),

@@ -4,12 +4,7 @@ import pandas as pd
 from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 import pickle
-
-# ---- SETTINGS ----
-CSV_PATH  = "labels.csv"
-IMG_SIZE  = (128, 128)
-TEST_SIZE = 0.1
-VAL_SIZE  = 0.1
+from config import IMG_SIZE, TEST_SIZE, VAL_SIZE, OUTPUT_CSV as CSV_PATH
 
 # ---- LOAD CSV ----
 df = pd.read_csv(CSV_PATH)
@@ -39,9 +34,13 @@ for i, img_path in enumerate(df["image_path"]):
     img = img / 255.0
     images.append(img)
 
-# Drop rows where image failed to load
+# Drop rows where image failed to load and log them for audit
 if failed:
+    failed_paths = df.iloc[failed]["image_path"].tolist()
     print(f"\n[WARNING] {len(failed)} images failed to load and were skipped.")
+    with open("failed_images.log", "w", encoding="utf-8") as flog:
+        flog.write("\n".join(failed_paths))
+    print(f"  Failed paths written to failed_images.log")
     df = df.drop(index=failed).reset_index(drop=True)
 
 images = np.array(images, dtype=np.float32)
@@ -84,9 +83,10 @@ y_size_train, y_size_val = train_test_split(
     random_state=42
 )
 
-print(f"Training samples:   {len(X_train)}")
-print(f"Validation samples: {len(X_val)}")
-print(f"Test samples:       {len(X_test)}")
+n_total = len(X_train) + len(X_val) + len(X_test)
+print(f"Training samples:   {len(X_train):>6}  ({len(X_train)/n_total*100:.1f}%)")
+print(f"Validation samples: {len(X_val):>6}  ({len(X_val)/n_total*100:.1f}%)")
+print(f"Test samples:       {len(X_test):>6}  ({len(X_test)/n_total*100:.1f}%)")
 
 # ---- SAVE ----
 print("\nSaving files...")
