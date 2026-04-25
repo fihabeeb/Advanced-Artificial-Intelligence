@@ -7,6 +7,8 @@ The proposed approach to solving task 1 problem was an LSTM model + Attention la
 
 The final decision between on deciding on which model now boils down to whether accuracy is favoured more or explainability (attention layer implementaion allows visualisation of bias towards recent orders). Additionally, the baseline LSTM would certainly use lesser computational power, lowering the overall cost of the implementation.
 
+For further details, view the readme in the 'Recommendation Model' directory.
+
 # Task 2 
 
 
